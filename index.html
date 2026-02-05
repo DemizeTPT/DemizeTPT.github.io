@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Is Shawn Working?</title>
+
+<style>
+:root {
+  --bg: #0f1115;
+  --card: #161a22;
+  --text: #e6e9ef;
+  --muted: #9aa4b2;
+  --work: #3b82f6;
+  --off: #22c55e;
+  --accent: #6366f1;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, Segoe UI, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  display: flex;
+  justify-content: center;
+}
+
+.container {
+  width: 100%;
+  max-width: 900px;
+  padding: 24px;
+}
+
+.card {
+  background: var(--card);
+  border-radius: 16px;
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.4);
+}
+
+.status {
+  text-align: center;
+}
+
+.status h1 {
+  font-size: clamp(2.5rem, 6vw, 4rem);
+  margin: 0;
+}
+
+.status p {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 1.1rem;
+}
+
+.working { color: var(--work); }
+.off { color: var(--off); }
+
+.calendar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.calendar-header button {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 1.5rem;
+  cursor: pointer;
+}
+
+.calendar-header h2 {
+  margin: 0;
+}
+
+.calendar {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+}
+
+.day-name {
+  text-align: center;
+  color: var(--muted);
+  font-size: .85rem;
+}
+
+.day {
+  aspect-ratio: 1 / 1;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+}
+
+.work-day { background: rgba(59,130,246,.25); color: #bfdbfe; }
+.off-day { background: rgba(34,197,94,.25); color: #bbf7d0; }
+.other-month { opacity: .25; }
+.today { outline: 2px solid var(--accent); }
+</style>
+</head>
+
+<body>
+<div class="container">
+
+  <div class="card status">
+    <h1 id="todayStatus"></h1>
+    <p id="nextOff"></p>
+  </div>
+
+  <div class="card">
+    <div class="calendar-header">
+      <button id="prevMonth">‹</button>
+      <h2 id="monthLabel"></h2>
+      <button id="nextMonth">›</button>
+    </div>
+
+    <div class="calendar" id="calendar"></div>
+  </div>
+
+</div>
+
+<script>
+const calendarEl = document.getElementById("calendar");
+const monthLabel = document.getElementById("monthLabel");
+const todayStatus = document.getElementById("todayStatus");
+const nextOff = document.getElementById("nextOff");
+
+let viewDate = new Date();
+const today = new Date();
+today.setHours(0,0,0,0);
+
+// Anchor: this week works Tuesday, off Monday
+// Tuesday of current week
+const anchor = new Date(today);
+anchor.setDate(anchor.getDate() - ((anchor.getDay() + 5) % 7));
+
+function worksToday(date) {
+  const day = date.getDay();
+
+  // Always work Thu, Sat, Sun
+  if (day === 4 || day === 6 || day === 0) return true;
+
+  // Alternating Mon/Tue
+  if (day === 1 || day === 2) {
+    const weeksDiff = Math.floor((date - anchor) / (7 * 86400000));
+    return (weeksDiff % 2 === 0) ? day === 2 : day === 1;
+  }
+
+  return false;
+}
+
+function findNextOff(start) {
+  let d = new Date(start);
+  for (let i = 1; i <= 14; i++) {
+    d.setDate(d.getDate() + 1);
+    if (!worksToday(d)) return d;
+  }
+}
+
+function renderStatus() {
+  const working = worksToday(today);
+  todayStatus.textContent = `Shawn is ${working ? "WORKING" : "OFF"} today`;
+  todayStatus.className = working ? "working" : "off";
+
+  const next = findNextOff(today);
+  nextOff.textContent = `Next day off: ${next.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}`;
+}
+
+function renderCalendar() {
+  calendarEl.innerHTML = "";
+
+  const year = viewDate.getFullYear();
+  const month = viewDate.getMonth();
+
+  monthLabel.textContent = viewDate.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+
+  const firstDay = new Date(year, month, 1);
+  const startDay = new Date(firstDay);
+  startDay.setDate(startDay.getDate() - firstDay.getDay());
+
+  const dayNames = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  dayNames.forEach(d => {
+    const el = document.createElement("div");
+    el.textContent = d;
+    el.className = "day-name";
+    calendarEl.appendChild(el);
+  });
+
+  for (let i = 0; i < 42; i++) {
+    const d = new Date(startDay);
+    d.setDate(startDay.getDate() + i);
+
+    const cell = document.createElement("div");
+    cell.className = "day";
+
+    if (d.getMonth() !== month) cell.classList.add("other-month");
+    cell.classList.add(worksToday(d) ? "work-day" : "off-day");
+
+    if (d.getTime() === today.getTime()) cell.classList.add("today");
+
+    cell.textContent = d.getDate();
+    calendarEl.appendChild(cell);
+  }
+}
+
+document.getElementById("prevMonth").onclick = () => {
+  viewDate.setMonth(viewDate.getMonth() - 1);
+  renderCalendar();
+};
+
+document.getElementById("nextMonth").onclick = () => {
+  viewDate.setMonth(viewDate.getMonth() + 1);
+  renderCalendar();
+};
+
+renderStatus();
+renderCalendar();
+</script>
+</body>
+</html>
