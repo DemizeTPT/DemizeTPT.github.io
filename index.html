@@ -7,111 +7,107 @@
 
 <style>
 :root {
-  --bg: #0f1115;
-  --card: #161a22;
-  --text: #e6e9ef;
-  --muted: #9aa4b2;
-  --work: #b91c1c;   /* dark red */
-  --off: #22c55e;    /* green */
+  --bg:#0f1115;
+  --card:#161a22;
+  --text:#e6e9ef;
+  --muted:#9aa4b2;
+  --work:#b91c1c;   /* dark red */
+  --off:#22c55e;    /* green */
 }
 
-* { box-sizing: border-box; }
+*{box-sizing:border-box}
 
-body {
-  margin: 0;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-  background: var(--bg);
-  color: var(--text);
-  display: flex;
-  justify-content: center;
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family:system-ui,-apple-system,BlinkMacSystemFont,sans-serif;
+  display:flex;
+  justify-content:center;
 }
 
-.container {
-  width: 100%;
-  max-width: 900px;
-  padding: 24px;
+.container{
+  width:100%;
+  max-width:900px;
+  padding:24px;
 }
 
-.card {
-  background: var(--card);
-  border-radius: 16px;
-  padding: 20px;
-  margin-bottom: 20px;
+.card{
+  background:var(--card);
+  border-radius:16px;
+  padding:20px;
+  margin-bottom:20px;
 }
 
-h1 {
-  margin: 0 0 8px 0;
-  font-size: 2rem;
-  user-select: none;
+h1{
+  margin:0 0 10px;
+  user-select:none;
 }
 
-.status {
-  font-size: 3rem;
-  font-weight: 800;
+.status{
+  font-size:3rem;
+  font-weight:800;
 }
 
-.muted {
-  color: var(--muted);
-  margin-top: 6px;
+.muted{color:var(--muted)}
+
+.calendar-header{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:10px;
 }
 
-.calendar-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
+button{
+  background:none;
+  border:1px solid #2a2f3a;
+  color:var(--text);
+  padding:6px 12px;
+  border-radius:8px;
+  cursor:pointer;
 }
 
-button {
-  background: none;
-  border: 1px solid #2a2f3a;
-  color: var(--text);
-  padding: 6px 12px;
-  border-radius: 8px;
-  cursor: pointer;
+.calendar{
+  display:grid;
+  grid-template-columns:repeat(7,1fr);
+  gap:6px;
 }
 
-.calendar {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 6px;
+.dow,.day{
+  text-align:center;
+  padding:10px 0;
+  border-radius:10px;
 }
 
-.day, .dow {
-  text-align: center;
-  padding: 10px 0;
-  border-radius: 10px;
+.dow{
+  color:var(--muted);
+  font-size:.85rem;
 }
 
-.dow {
-  color: var(--muted);
-  font-size: 0.85rem;
+.day{
+  background:#10131a;
+  cursor:pointer;
+  transition:background-color .35s ease,color .35s ease;
 }
 
-.day {
-  cursor: pointer;
-  background: #10131a;
-  transition: background-color 0.35s ease, color 0.35s ease;
+.day.work{
+  background:rgba(185,28,28,.35);
+  color:#fecaca;
 }
 
-.day.work {
-  background: rgba(185,28,28,0.35);
-  color: #fecaca;
+.day.off{
+  background:rgba(34,197,94,.35);
+  color:#bbf7d0;
 }
 
-.day.off {
-  background: rgba(34,197,94,0.35);
-  color: #bbf7d0;
+.day.today{
+  outline:2px solid #6366f1;
 }
 
-.day.today {
-  outline: 2px solid #6366f1;
-}
-
-.edit-indicator {
-  margin-top: 10px;
-  color: #fbbf24;
-  display: none;
+#editIndicator{
+  margin-top:8px;
+  color:#fbbf24;
+  display:none;
 }
 </style>
 </head>
@@ -123,7 +119,7 @@ button {
     <h1 id="title">Is Shawn Working Today?</h1>
     <div id="status" class="status"></div>
     <div id="nextOff" class="muted"></div>
-    <div id="editIndicator" class="edit-indicator">Edit mode enabled</div>
+    <div id="editIndicator">Edit mode enabled</div>
   </div>
 
   <div class="card">
@@ -132,14 +128,13 @@ button {
       <div id="monthLabel"></div>
       <button id="next">▶</button>
     </div>
-
-    <div class="calendar" id="calendar"></div>
+    <div id="calendar" class="calendar"></div>
   </div>
 
 </div>
 
 <script>
-/* ===== CONFIG ===== */
+/* ===== JSONBIN CONFIG ===== */
 const BIN_ID = "6986b3c1d0ea881f40a70740";
 const READ_KEY = "$2a$10$UytFdwRN.8RNtjdr.l7R.ufpmfLeKp4a8dNK2qILbhDTfzZZWR8M6";
 const WRITE_KEY = "$2a$10$UytFdwRN.8RNtjdr.l7R.ufpmfLeKp4a8dNK2qILbhDTfzZZWR8M6";
@@ -152,55 +147,59 @@ let viewDate = new Date();
 /* ===== HELPERS ===== */
 const fmt = d => d.toISOString().split("T")[0];
 
-function isWorkDay(date) {
-  const day = date.getDay();
-  const start = new Date("2026-02-03"); // Tuesday worked
-  const weeks = Math.floor((date - start) / (1000*60*60*24*7));
-  const mondayWeek = weeks % 2 === 1;
+/* Anchor: week of Feb 9, 2026 = WORK MONDAY */
+const anchorMonday = new Date("2026-02-09");
 
-  let working =
-    day === 4 || // Thursday
-    day === 0 || // Sunday
-    day === 6 || // Saturday
-    (day === 1 && mondayWeek) ||
-    (day === 2 && !mondayWeek);
+function isWorkDay(date){
+  const day = date.getDay(); // 0 Sun .. 6 Sat
 
-  const key = fmt(date);
-  if (overrides[key] === "work") working = true;
-  if (overrides[key] === "off") working = false;
+  // Always working days
+  if (day === 4 || day === 6 || day === 0) return true;
 
-  return working;
+  // Alternating Mon/Tue
+  if (day === 1 || day === 2){
+    const weeks =
+      Math.floor((date - anchorMonday) / (1000*60*60*24*7));
+    const mondayWeek = weeks % 2 === 0;
+    let working = (day === 1 && mondayWeek) || (day === 2 && !mondayWeek);
+
+    const key = fmt(date);
+    if (overrides[key] === "work") working = true;
+    if (overrides[key] === "off") working = false;
+    return working;
+  }
+
+  return false;
 }
 
-/* ===== LOAD / SAVE OVERRIDES ===== */
-async function loadOverrides() {
-  const res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, {
-    headers: { "X-Access-Key": READ_KEY }
+/* ===== JSONBIN ===== */
+async function loadOverrides(){
+  const res = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`,{
+    headers:{ "X-Access-Key": READ_KEY }
   });
   const data = await res.json();
   overrides = data.record.overrides || {};
 }
 
-async function saveOverrides() {
-  await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
+async function saveOverrides(){
+  await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`,{
+    method:"PUT",
+    headers:{
+      "Content-Type":"application/json",
       "X-Access-Key": WRITE_KEY
     },
-    body: JSON.stringify({ overrides })
+    body:JSON.stringify({ overrides })
   });
 }
 
 /* ===== STATUS ===== */
-function renderStatus() {
+function renderStatus(){
   const today = new Date();
   const working = isWorkDay(today);
-  document.getElementById("status").textContent =
-    working ? "YES" : "NO";
+  document.getElementById("status").textContent = working ? "YES" : "NO";
 
   let next = new Date(today);
-  do { next.setDate(next.getDate() + 1); }
+  do { next.setDate(next.getDate()+1); }
   while (isWorkDay(next));
 
   document.getElementById("nextOff").textContent =
@@ -208,42 +207,41 @@ function renderStatus() {
 }
 
 /* ===== CALENDAR ===== */
-function renderCalendar() {
+function renderCalendar(){
   const cal = document.getElementById("calendar");
   cal.innerHTML = "";
 
-  const year = viewDate.getFullYear();
-  const month = viewDate.getMonth();
-  document.getElementById("monthLabel").textContent =
-    viewDate.toLocaleString("default", { month: "long", year: "numeric" });
+  const y = viewDate.getFullYear();
+  const m = viewDate.getMonth();
 
-  ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].forEach(d => {
-    const el = document.createElement("div");
-    el.className = "dow";
-    el.textContent = d;
+  document.getElementById("monthLabel").textContent =
+    viewDate.toLocaleString("default",{month:"long",year:"numeric"});
+
+  ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].forEach(d=>{
+    const el=document.createElement("div");
+    el.className="dow";
+    el.textContent=d;
     cal.appendChild(el);
   });
 
-  const first = new Date(year, month, 1);
-  for (let i = 0; i < first.getDay(); i++)
+  const first = new Date(y,m,1);
+  for(let i=0;i<first.getDay();i++)
     cal.appendChild(document.createElement("div"));
 
-  const days = new Date(year, month + 1, 0).getDate();
-  for (let d = 1; d <= days; d++) {
-    const date = new Date(year, month, d);
-    const key = fmt(date);
-    const el = document.createElement("div");
-    el.className = "day";
-    el.textContent = d;
+  const days = new Date(y,m+1,0).getDate();
+  for(let d=1;d<=days;d++){
+    const date=new Date(y,m,d);
+    const key=fmt(date);
+    const el=document.createElement("div");
+    el.className="day";
+    el.textContent=d;
 
-    if (isWorkDay(date)) el.classList.add("work");
-    else el.classList.add("off");
-
+    isWorkDay(date) ? el.classList.add("work") : el.classList.add("off");
     if (fmt(date) === fmt(new Date())) el.classList.add("today");
 
-    el.onclick = async () => {
-      if (!editMode) return;
-      overrides[key] = overrides[key] === "work" ? "off" : "work";
+    el.onclick = async ()=>{
+      if(!editMode) return;
+      overrides[key] = overrides[key]==="work" ? "off" : "work";
       await saveOverrides();
       renderStatus();
       renderCalendar();
@@ -254,40 +252,17 @@ function renderCalendar() {
 }
 
 /* ===== SECRET EDIT MODE ===== */
-const title = document.getElementById("title");
-let holdTimer;
+const title=document.getElementById("title");
+let hold;
 
-title.addEventListener("mousedown", () => {
-  holdTimer = setTimeout(toggleEdit, 3000);
-});
-title.addEventListener("mouseup", () => clearTimeout(holdTimer));
-title.addEventListener("touchstart", () => {
-  holdTimer = setTimeout(toggleEdit, 3000);
-});
-title.addEventListener("touchend", () => clearTimeout(holdTimer));
-
-function toggleEdit() {
-  editMode = !editMode;
+function toggleEdit(){
+  editMode=!editMode;
   document.getElementById("editIndicator").style.display =
     editMode ? "block" : "none";
 }
 
-/* ===== NAV ===== */
-document.getElementById("prev").onclick = () => {
-  viewDate.setMonth(viewDate.getMonth() - 1);
-  renderCalendar();
-};
-document.getElementById("next").onclick = () => {
-  viewDate.setMonth(viewDate.getMonth() + 1);
-  renderCalendar();
-};
-
-/* ===== INIT ===== */
-(async () => {
-  await loadOverrides();
-  renderStatus();
-  renderCalendar();
-})();
-</script>
-</body>
-</html>
+["mousedown","touchstart"].forEach(e=>{
+  title.addEventListener(e,()=> hold=setTimeout(toggleEdit,3000));
+});
+["mouseup","touchend","mouseleave"].forEach(e=>{
+  title.addEventListener(e,()=> clea
