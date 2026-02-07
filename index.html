@@ -11,12 +11,14 @@
   --card: #161a22;
   --text: #e6e9ef;
   --muted: #9aa4b2;
-  --work: #6e0d0d;
+
+  --work: #b91c1c;
   --off: #22c55e;
   --accent: #6366f1;
 }
 
 * { box-sizing: border-box; }
+
 body {
   margin: 0;
   font-family: system-ui, -apple-system, Segoe UI, sans-serif;
@@ -42,6 +44,7 @@ body {
 
 .status {
   text-align: center;
+  user-select: none;
 }
 
 .status h1 {
@@ -53,6 +56,18 @@ body {
   margin-top: 8px;
   color: var(--muted);
   font-size: 1.1rem;
+}
+
+.mode-indicator {
+  margin-top: 6px;
+  font-size: .85rem;
+  color: var(--accent);
+  opacity: 0;
+  transition: opacity .3s ease;
+}
+
+.mode-on .mode-indicator {
+  opacity: 1;
 }
 
 .working { color: var(--work); }
@@ -71,10 +86,6 @@ body {
   color: var(--accent);
   font-size: 1.5rem;
   cursor: pointer;
-}
-
-.calendar-header h2 {
-  margin: 0;
 }
 
 .calendar {
@@ -96,10 +107,28 @@ body {
   align-items: center;
   justify-content: center;
   font-weight: 600;
+
+  transition:
+    background-color .35s ease,
+    color .35s ease,
+    transform .15s ease;
 }
 
-.work-day { background: rgba(59,130,246,.25); color: #bfdbfe; }
-.off-day { background: rgba(34,197,94,.25); color: #bbf7d0; }
+.day.editable:hover {
+  transform: scale(1.06);
+  cursor: pointer;
+}
+
+.work-day {
+  background: rgba(185,28,28,.25);
+  color: #fecaca;
+}
+
+.off-day {
+  background: rgba(34,197,94,.25);
+  color: #bbf7d0;
+}
+
 .other-month { opacity: .25; }
 .today { outline: 2px solid var(--accent); }
 </style>
@@ -108,9 +137,10 @@ body {
 <body>
 <div class="container">
 
-  <div class="card status">
+  <div class="card status" id="statusCard">
     <h1 id="todayStatus"></h1>
     <p id="nextOff"></p>
+    <div class="mode-indicator">Change mode enabled</div>
   </div>
 
   <div class="card">
@@ -119,7 +149,6 @@ body {
       <h2 id="monthLabel"></h2>
       <button id="nextMonth">›</button>
     </div>
-
     <div class="calendar" id="calendar"></div>
   </div>
 
@@ -130,28 +159,42 @@ const calendarEl = document.getElementById("calendar");
 const monthLabel = document.getElementById("monthLabel");
 const todayStatus = document.getElementById("todayStatus");
 const nextOff = document.getElementById("nextOff");
+const statusCard = document.getElementById("statusCard");
 
 let viewDate = new Date();
 const today = new Date();
 today.setHours(0,0,0,0);
 
-// Anchor: this week works Tuesday, off Monday
-// Tuesday of current week
+// 🔐 Edit mode
+let editMode = false;
+let tapCount = 0;
+let tapTimer;
+
+// Manual overrides (device-local)
+let overrides = JSON.parse(localStorage.getItem("manualWorkDays") || "[]");
+
+// Anchor: this week works Tuesday
 const anchor = new Date(today);
 anchor.setDate(anchor.getDate() - ((anchor.getDay() + 5) % 7));
 
-function worksToday(date) {
-  const day = date.getDay();
+function dateKey(d) {
+  return d.toISOString().slice(0,10);
+}
 
-  // Always work Thu, Sat, Sun
+function isOverride(d) {
+  return overrides.includes(dateKey(d));
+}
+
+function worksToday(d) {
+  if (isOverride(d)) return true;
+
+  const day = d.getDay();
   if (day === 4 || day === 6 || day === 0) return true;
 
-  // Alternating Mon/Tue
   if (day === 1 || day === 2) {
-    const weeksDiff = Math.floor((date - anchor) / (7 * 86400000));
+    const weeksDiff = Math.floor((d - anchor) / (7 * 86400000));
     return (weeksDiff % 2 === 0) ? day === 2 : day === 1;
   }
-
   return false;
 }
 
@@ -169,7 +212,21 @@ function renderStatus() {
   todayStatus.className = working ? "working" : "off";
 
   const next = findNextOff(today);
-  nextOff.textContent = `Next day off: ${next.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}`;
+  nextOff.textContent =
+    `Next day off: ${next.toLocaleDateString(undefined, {
+      weekday: "long", month: "long", day: "numeric"
+    })}`;
+}
+
+function toggleDay(d) {
+  const key = dateKey(d);
+  const idx = overrides.indexOf(key);
+  if (idx >= 0) overrides.splice(idx, 1);
+  else overrides.push(key);
+
+  localStorage.setItem("manualWorkDays", JSON.stringify(overrides));
+  renderStatus();
+  renderCalendar();
 }
 
 function renderCalendar() {
@@ -177,15 +234,15 @@ function renderCalendar() {
 
   const year = viewDate.getFullYear();
   const month = viewDate.getMonth();
-
-  monthLabel.textContent = viewDate.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+  monthLabel.textContent = viewDate.toLocaleDateString(undefined, {
+    month: "long", year: "numeric"
+  });
 
   const firstDay = new Date(year, month, 1);
   const startDay = new Date(firstDay);
   startDay.setDate(startDay.getDate() - firstDay.getDay());
 
-  const dayNames = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-  dayNames.forEach(d => {
+  ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].forEach(d => {
     const el = document.createElement("div");
     el.textContent = d;
     el.className = "day-name";
@@ -198,16 +255,38 @@ function renderCalendar() {
 
     const cell = document.createElement("div");
     cell.className = "day";
-
-    if (d.getMonth() !== month) cell.classList.add("other-month");
     cell.classList.add(worksToday(d) ? "work-day" : "off-day");
 
+    if (editMode) cell.classList.add("editable");
+    if (d.getMonth() !== month) cell.classList.add("other-month");
     if (d.getTime() === today.getTime()) cell.classList.add("today");
 
     cell.textContent = d.getDate();
+
+    cell.onclick = () => {
+      if (!editMode) return;
+      toggleDay(d);
+    };
+
     calendarEl.appendChild(cell);
   }
 }
+
+// 🔑 Triple-tap status to toggle edit mode
+statusCard.onclick = () => {
+  tapCount++;
+  clearTimeout(tapTimer);
+
+  tapTimer = setTimeout(() => tapCount = 0, 600);
+
+  if (tapCount === 3) {
+    editMode = !editMode;
+    tapCount = 0;
+
+    statusCard.classList.toggle("mode-on", editMode);
+    renderCalendar();
+  }
+};
 
 document.getElementById("prevMonth").onclick = () => {
   viewDate.setMonth(viewDate.getMonth() - 1);
